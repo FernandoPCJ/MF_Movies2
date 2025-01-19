@@ -1,0 +1,12 @@
+[project]
+name = "mfmovies-sqlmodel"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.6",
+    "mypy>=1.14.1",
+    "python-dotenv>=1.0.1",
+    "sqlmodel>=0.0.22",
+]
