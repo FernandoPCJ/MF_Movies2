@@ -5,6 +5,7 @@ from database import get_session
 from modelos.associacoes import ListaFilmeLink
 from modelos.filme import Filme
 from modelos.lista_favoritos import ListaFavoritos
+from modelos.usuario import Usuario
 
 router = APIRouter(prefix="/listas-favoritos", tags=["Listas de Favoritos"])
 
@@ -13,6 +14,13 @@ def criar_lista(lista: ListaFavoritos, session: Session = Depends(get_session)):
     """
     Cria uma nova lista de favoritos.
     """
+    
+    lista_existente = session.get(ListaFavoritos, lista.id)
+    if lista_existente:
+        raise HTTPException(status_code=400, detail="ID da lista já está em uso.")
+    usuario_existente = session.get(Usuario, lista.usuario_id)
+    if not usuario_existente:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     session.add(lista)
     session.commit()
     session.refresh(lista)
@@ -66,22 +74,18 @@ def adicionar_filme_lista(lista_id: int, filme_id: int, session: Session = Depen
     """
     Adiciona um filme à lista de favoritos.
     """
-    # Verifica se a lista de favoritos existe
     lista_favoritos = session.get(ListaFavoritos, lista_id)
     if not lista_favoritos:
         raise HTTPException(status_code=404, detail="Lista de favoritos não encontrada.")
 
-    # Verifica se o filme existe
     filme = session.get(Filme, filme_id)
     if not filme:
         raise HTTPException(status_code=404, detail="Filme não encontrado.")
 
-    # Verifica se o filme já está na lista
     filme_na_lista = session.get(ListaFilmeLink, (lista_id, filme_id))
     if filme_na_lista:
         raise HTTPException(status_code=400, detail="Filme já está na lista de favoritos.")
 
-    # Adiciona o filme à lista
     novo_link = ListaFilmeLink(lista_favoritos_id=lista_id, filme_id=filme_id)
     session.add(novo_link)
     session.commit()
@@ -95,47 +99,40 @@ def remover_filme_lista(lista_id: int, filme_id: int, session: Session = Depends
     """
     Remove um filme da lista de favoritos.
     """
-    # Verifica se a lista de favoritos existe
     lista_favoritos = session.get(ListaFavoritos, lista_id)
     if not lista_favoritos:
         raise HTTPException(status_code=404, detail="Lista de favoritos não encontrada.")
 
-    # Verifica se o filme existe
     filme = session.get(Filme, filme_id)
     if not filme:
         raise HTTPException(status_code=404, detail="Filme não encontrado.")
 
-    # Verifica se o filme está na lista
     filme_na_lista = session.get(ListaFilmeLink, (lista_id, filme_id))
     if not filme_na_lista:
         raise HTTPException(status_code=404, detail="O filme não está na lista de favoritos.")
 
-    # Remove o filme da lista
     session.delete(filme_na_lista)
     session.commit()
 
     return {"message": "Filme removido da lista com sucesso!", "lista_id": lista_id, "filme_id": filme_id}
 
-
 @router.get("/{lista_id}/filmes", response_model=list[Filme])
-def listar_filmes_lista(lista_id: int, session: Session = Depends(get_session)):
+def listar_filmes_lista(lista_id: int, limit: int = 10, offset: int = 0, session: Session = Depends(get_session)):
     """
-    Lista todos os filmes de uma lista de favoritos.
+    Lista todos os filmes de uma lista de favoritos com paginação.
     """
-    # Verifica se a lista de favoritos existe
     lista_favoritos = session.get(ListaFavoritos, lista_id)
     if not lista_favoritos:
         raise HTTPException(status_code=404, detail="Lista de favoritos não encontrada.")
 
-    # Consulta para buscar os filmes associados à lista de favoritos
     statement = (
         select(Filme)
         .join(ListaFilmeLink, ListaFilmeLink.filme_id == Filme.id)
         .where(ListaFilmeLink.lista_favoritos_id == lista_id)
+        .limit(limit)
+        .offset(offset)
     )
     filmes = session.exec(statement).all()
-
-    # Retorna os filmes encontrados
     return filmes
 
 @router.get("/{lista_id}/filme/count", response_model=dict)
@@ -143,16 +140,12 @@ def contar_filmes_lista(lista_id: int, session: Session = Depends(get_session)):
     """
     Conta os filmes em uma lista de favoritos.
     """
-    # Verifica se a lista de favoritos existe
     lista_favoritos = session.get(ListaFavoritos, lista_id)
     if not lista_favoritos:
         raise HTTPException(status_code=404, detail="Lista de favoritos não encontrada.")
 
-    # Consulta para contar os filmes na lista de favoritos
     statement = select(func.count(ListaFilmeLink.filme_id)).where(ListaFilmeLink.lista_favoritos_id == lista_id)
-    resultados = session.exec(statement).all()  # Retorna uma lista com um único valor
-
-    # Extrai o valor do resultado
+    resultados = session.exec(statement).all()  
     total_filmes = resultados[0] if resultados else 0
 
     return {"lista_id": lista_id, "total_filmes": total_filmes}

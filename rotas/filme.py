@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 from database import get_session
@@ -16,32 +16,49 @@ def criar_filme(filme: Filme, session: Session = Depends(get_session)):
     session.refresh(filme)
     return filme
 
-@router.get("/", response_model=list[Filme])
-def listar_filmes(
+# @router.get("/", response_model=list[Filme])
+# def listar_filmes(
+#     tituloContains: Optional[str] = Query(None),
+#     session: Session = Depends(get_session)
+# ):
+#     """
+#     Retorna todos os filmes ou filtra por nome parcial no título.
+#     """
+#     query = select(Filme)
+#     if tituloContains:
+#         query = query.where(Filme.titulo.ilike(f"%{tituloContains}%"))
+#     filmes = session.exec(query).all()
+#     if not filmes:
+#         raise HTTPException(status_code=404, detail="Nenhum filme encontrado com o título especificado")
+#     return filmes
+#   ***outra forma de fazer as consultas abaixo***
+
+@router.get("/", response_model=List[Filme])
+def listar_filmes(session: Session = Depends(get_session)):
+    """
+    Retorna todos os filmes.
+    """
+    filmes = session.exec(select(Filme)).all()
+    if not filmes:
+        raise HTTPException(status_code=404, detail="Nenhum filme encontrado.")
+    return filmes
+
+@router.get("/parcial", response_model=List[Filme])
+def listar_filmes_parcial(
     tituloContains: Optional[str] = Query(None),
     session: Session = Depends(get_session)
 ):
     """
-    Retorna todos os filmes ou filtra por nome parcial no título.
+    Retorna filmes filtrados por nome parcial no título.
     """
-    query = select(Filme)
-    if tituloContains:
-        query = query.where(Filme.titulo.ilike(f"%{tituloContains}%"))
+    if not tituloContains:
+        raise HTTPException(status_code=400, detail="É obrigatório preencher o 'tituloContains' para esta consulta.")
+    
+    query = select(Filme).where(Filme.titulo.ilike(f"%{tituloContains}%"))
     filmes = session.exec(query).all()
     if not filmes:
-        raise HTTPException(status_code=404, detail="Nenhum filme encontrado com o título especificado")
+        raise HTTPException(status_code=404, detail="Nenhum filme encontrado com o título especificado.")
     return filmes
-
-
-@router.get("/{filme_id}", response_model=Filme)
-def obter_filme(filme_id: int, session: Session = Depends(get_session)):
-    """
-    Retorna um filme pelo ID.
-    """
-    filme = session.get(Filme, filme_id)
-    if not filme:
-        raise HTTPException(status_code=404, detail="Filme não encontrado")
-    return filme
 
 
 @router.get("/{filme_id}", response_model=Filme)
@@ -92,7 +109,6 @@ def listar_filmes_por_genero(
     """
     Lista todos os filmes de um gênero específico.
     """
-    # Consulta os filmes pelo gênero informado
     filmes = session.exec(
         select(Filme).where(Filme.genero == genero)
     ).all()
@@ -124,12 +140,14 @@ def listar_filmes_por_diretor(diretor: str, session: Session = Depends(get_sessi
 @router.get("/ano-lancamento/{ano_lancamento}", response_model=list[Filme])
 def listar_filmes_por_ano_lancamento(
     ano_lancamento: int,
+    skip: int = 0,
+    limit: int = 10,
     session: Session = Depends(get_session)
 ):
     """
     Retorna todos os filmes lançados em um ano específico.
     """
-    query = select(Filme).where(Filme.ano_lancamento == ano_lancamento)
+    query = select(Filme).where(Filme.ano_lancamento == ano_lancamento).offset(skip).limit(limit)
     filmes = session.exec(query).all()
     if not filmes:
         raise HTTPException(status_code=404, detail="Nenhum filme encontrado para o ano especificado")
@@ -139,11 +157,13 @@ def listar_filmes_por_ano_lancamento(
 @router.get("/ordem/ordenados-por-ano", response_model=list[Filme])
 def listar_filmes_ordenados_por_ano(
     ordem: Literal["asc", "desc"] = "asc",
+    skip: int = 0,
+    limit: int = 10,
     session: Session = Depends(get_session)
 ):
     """
     Retorna todos os filmes ordenados por ano de lançamento.
     """
     query = select(Filme).order_by(Filme.ano_lancamento.asc() if ordem == "asc" else Filme.ano_lancamento.desc())
-    filmes = session.exec(query).all()
+    filmes = session.exec(query.offset(skip).limit(limit)).all()
     return filmes

@@ -10,17 +10,35 @@ router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 
 @router.post("/", response_model=Usuario)
 def criar_usuario(usuario: Usuario, session: Session = Depends(get_session)):
+    """
+    Cria um novo usuário.
+    """
+    existing_user = session.get(Usuario, usuario.id)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="ID de usuário já utilizado")
+    existing_email = session.exec(select(Usuario).where(Usuario.email == usuario.email)).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Endereço de e-mail já utilizado")
     session.add(usuario)
     session.commit()
     session.refresh(usuario)
     return usuario
 
-@router.get("/", response_model=list[Usuario])
-def listar_usuarios(session: Session = Depends(get_session)):
-    return session.exec(select(Usuario)).all()
+
+@router.get("/", response_model=List[Usuario])
+def listar_usuarios(limit: int = 10, offset: int = 0, session: Session = Depends(get_session)):
+    """
+    Lista todos os usuários.
+    """
+    statement = select(Usuario).limit(limit).offset(offset)
+    return session.exec(statement).all()
+
 
 @router.get("/{usuario_id}", response_model=Usuario)
 def obter_usuario(usuario_id: int, session: Session = Depends(get_session)):
+    """
+    Retorna um usuário pelo ID.
+    """
     usuario = session.get(Usuario, usuario_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
@@ -28,6 +46,9 @@ def obter_usuario(usuario_id: int, session: Session = Depends(get_session)):
 
 @router.put("/{usuario_id}", response_model=Usuario)
 def atualizar_usuario(usuario_id: int, usuario: Usuario, session: Session = Depends(get_session)):
+    """
+    Atualiza os dados de um usuário existente.
+    """
     usuario_existente = session.get(Usuario, usuario_id)
     if not usuario_existente:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
@@ -39,6 +60,9 @@ def atualizar_usuario(usuario_id: int, usuario: Usuario, session: Session = Depe
 
 @router.delete("/{usuario_id}")
 def deletar_usuario(usuario_id: int, session: Session = Depends(get_session)):
+    """
+    Deleta um usuário pelo ID.
+    """
     usuario = session.get(Usuario, usuario_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
@@ -47,18 +71,16 @@ def deletar_usuario(usuario_id: int, session: Session = Depends(get_session)):
     return {"detail": "Usuário deletado com sucesso"}
 
 @router.get("/{usuario_id}/avaliacoes", response_model=List[dict])
-def listar_avaliacoes_usuario(usuario_id: int, session: Session = Depends(get_session)):
+def listar_avaliacoes_usuario(usuario_id: int, limit: int = 10, offset: int = 0, session: Session = Depends(get_session)):
     """
     Lista todas as avaliações de um usuário, incluindo o título do filme e o nome do usuário.
     """
-    # Verifica se o usuário existe
     usuario = session.get(Usuario, usuario_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-    # Consulta com JOIN para obter avaliações, título do filme e nome do usuário
     statement = (
-        select(
+    select(
             Avaliacao.id,
             Avaliacao.nota,
             Avaliacao.comentario,
@@ -68,10 +90,11 @@ def listar_avaliacoes_usuario(usuario_id: int, session: Session = Depends(get_se
         .join(Filme, Filme.id == Avaliacao.filme_id)
         .join(Usuario, Usuario.id == Avaliacao.usuario_id)
         .where(Avaliacao.usuario_id == usuario_id)
+        .limit(limit)
+        .offset(offset)
     )
     resultados = session.exec(statement).all()
 
-    # Retorna os resultados no formato de lista de dicionários
     return [
         {
             "id": avaliacao.id,
