@@ -18,7 +18,7 @@ def criar_filme(filme: Filme, session: Session = Depends(get_session)):
 
 # @router.get("/", response_model=list[Filme])
 # def listar_filmes(
-#     tituloContains: Optional[str] = Query(None),
+#     tituloContains: str | None = Query(None),
 #     session: Session = Depends(get_session)
 # ):
 #     """
@@ -45,7 +45,7 @@ def listar_filmes(session: Session = Depends(get_session)):
 
 @router.get("/parcial", response_model=List[Filme])
 def listar_filmes_parcial(
-    tituloContains: Optional[str] = Query(None),
+    tituloContains: str | None = Query(None),
     session: Session = Depends(get_session)
 ):
     """
@@ -109,9 +109,7 @@ def listar_filmes_por_genero(
     """
     Lista todos os filmes de um gênero específico.
     """
-    filmes = session.exec(
-        select(Filme).where(Filme.genero == genero)
-    ).all()
+    filmes = session.exec(select(Filme).where(Filme.genero == genero)).all()
 
     if not filmes:
         raise HTTPException(

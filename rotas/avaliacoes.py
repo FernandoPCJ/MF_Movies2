@@ -130,7 +130,7 @@ def obter_media_notas_filme(filme_id: int, session: Session = Depends(get_sessio
     statement = select(func.avg(Avaliacao.nota)).where(Avaliacao.filme_id == filme_id)
     resultados = session.exec(statement).all()  # Retorna uma lista com um único valor
 
-    media = resultados[0] if resultados else None
+    media = session.exec(statement).first()
     if media is None:
         raise HTTPException(status_code=404, detail="Nenhuma avaliação encontrada para este filme.")
 

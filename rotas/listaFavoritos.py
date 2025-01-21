@@ -146,6 +146,5 @@ def contar_filmes_lista(lista_id: int, session: Session = Depends(get_session)):
 
     statement = select(func.count(ListaFilmeLink.filme_id)).where(ListaFilmeLink.lista_favoritos_id == lista_id)
     resultados = session.exec(statement).all()  
-    total_filmes = resultados[0] if resultados else 0
-
+    total_filmes = session.exec(statement).first() or 0
     return {"lista_id": lista_id, "total_filmes": total_filmes}
