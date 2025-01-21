@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from .avaliacao import Avaliacao
 
 class Filme(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     titulo: str
     diretor: str
     ano_lancamento: int

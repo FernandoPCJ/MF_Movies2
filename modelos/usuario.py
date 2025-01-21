@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from .avaliacao import Avaliacao
 
 class Usuario(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     nome: str
     email: str
 
