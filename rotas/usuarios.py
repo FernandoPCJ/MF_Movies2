@@ -12,12 +12,12 @@ router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 def criar_usuario(usuario: Usuario, session: Session = Depends(get_session)):
     """
     Cria um novo usuário.
-    """
-    existing_user = session.get(Usuario, usuario.id)
-    if existing_user:
+    """ 
+    usuario_existente = session.get(Usuario, usuario.id)
+    if usuario_existente:
         raise HTTPException(status_code=400, detail="ID de usuário já utilizado")
-    existing_email = session.exec(select(Usuario).where(Usuario.email == usuario.email)).first()
-    if existing_email:
+    email_existente = session.exec(select(Usuario).where(Usuario.email == usuario.email)).first()
+    if email_existente:
         raise HTTPException(status_code=400, detail="Endereço de e-mail já utilizado")
     session.add(usuario)
     session.commit()
